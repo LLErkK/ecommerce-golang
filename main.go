@@ -19,7 +19,7 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.InjectDB(db))
 
-	router := gin.Default()
-	routes.AuthRoutes(r, db)
-	router.Run(":8080")
+	routes.AuthRoutes(r, db) // Daftarkan routes ke router yang sama
+	r.Run(":8080")           // Jalankan router yang sudah ada routes-nya
+
 }

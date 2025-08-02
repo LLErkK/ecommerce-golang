@@ -10,7 +10,13 @@ import (
 )
 
 func SellerRegister(c *gin.Context) {
-	var input models.Seller
+	var input struct {
+		Email    string `json:"email" binding:"required"`
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
+		ShopName string `json:"shop_name" binding:"required"`
+		Phone    string `json:"phone"`
+	}
 	db := c.MustGet("db").(*gorm.DB)
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -18,32 +24,66 @@ func SellerRegister(c *gin.Context) {
 		return
 	}
 
+	// Hash password
 	hashed, _ := bcrypt.GenerateFromPassword([]byte(input.Password), 12)
-	input.Password = string(hashed)
 
-	if err := db.Create(&input).Error; err != nil {
+	// Start transaction
+	tx := db.Begin()
+
+	// Create seller
+	seller := models.Seller{
+		Email:    input.Email,
+		Username: input.Username,
+		Password: string(hashed),
+	}
+
+	if err := tx.Create(&seller).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": input, "message": "Register success"})
+	// Auto create profile
+	profile := models.SellerProfile{
+		SellerID: seller.ID,
+		ShopName: input.ShopName,
+		Phone:    input.Phone,
+		ShopLogo: "default-shop.png",
+	}
+
+	if err := tx.Create(&profile).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal membuat profile"})
+		return
+	}
+
+	tx.Commit()
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Register success",
+		"data": gin.H{
+			"seller":  seller,
+			"profile": profile,
+		},
+	})
 }
 
 func SellerLogin(c *gin.Context) {
 	var input struct {
-		Email    string `form:"email" binding:"required"`
-		Password string `form:"password" binding:"required"`
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
 	}
 	var seller models.Seller
 	db := c.MustGet("db").(*gorm.DB)
 
-	if err := c.ShouldBindQuery(&input); err != nil {
+	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	//email salah
 	if err := db.Where("email = ?", input.Email).First(&seller).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 	//password salah
 	if err := bcrypt.CompareHashAndPassword([]byte(seller.Password), []byte(input.Password)); err != nil {
@@ -51,7 +91,11 @@ func SellerLogin(c *gin.Context) {
 		return
 	}
 
-	token, _ := utils.GenerateJWT(seller.ID, "seller")
+	token, err := utils.GenerateJWT(seller.ID, "seller")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Gagal generate token" + err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"token": token, "message": "Login success"})
 }
 

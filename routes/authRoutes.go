@@ -2,6 +2,7 @@ package routes
 
 import (
 	"ecommerce-golang/controllers"
+	"ecommerce-golang/middleware"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -25,5 +26,19 @@ func AuthRoutes(r *gin.Engine, db *gorm.DB) {
 		seller.POST("/login", func(c *gin.Context) {
 			controllers.SellerLogin(c)
 		})
+	}
+
+	//authorisasi User
+	userProtected := r.Group("/user")
+	userProtected.Use(middleware.AuthMiddleware("user"))
+	{
+		//logika bisnis user
+	}
+
+	//authorisasi seller
+	sellerProtected := r.Group("/seller")
+	sellerProtected.Use(middleware.AuthMiddleware("seller"))
+	{
+		//logika bisnis seller
 	}
 }
