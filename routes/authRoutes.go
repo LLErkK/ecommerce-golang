@@ -32,13 +32,17 @@ func AuthRoutes(r *gin.Engine, db *gorm.DB) {
 	userProtected := r.Group("/user")
 	userProtected.Use(middleware.AuthMiddleware("user"))
 	{
-		//logika bisnis user
+		userProtected.GET("/me", controllers.UserMe)
+		userProtected.GET("/profile", controllers.GetUserProfile)
+		userProtected.PUT("/profile", controllers.UpdateUserProfile)
 	}
 
 	//authorisasi seller
 	sellerProtected := r.Group("/seller")
 	sellerProtected.Use(middleware.AuthMiddleware("seller"))
 	{
-		//logika bisnis seller
+		sellerProtected.GET("/me", controllers.SellerMe)
+		sellerProtected.GET("/profile", controllers.GetSellerProfile)
+		sellerProtected.PUT("/profile", controllers.UpdateSellerProfile)
 	}
 }
