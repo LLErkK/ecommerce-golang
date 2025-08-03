@@ -19,7 +19,9 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.InjectDB(db))
 
-	routes.AuthRoutes(r, db) // Daftarkan routes ke router yang sama
-	r.Run(":8080")           // Jalankan router yang sudah ada routes-nya
-
+	routes.AuthRoutes(r, db) // Daftarkan routes, dan pilih tingakatn rate
+	err = r.Run(":8080")     // Jalankan router yang sudah ada routes-nya
+	if err != nil {
+		panic(err)
+	}
 }
