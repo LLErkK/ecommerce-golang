@@ -14,8 +14,6 @@ func UserRegister(c *gin.Context) {
 		Email    string `json:"email" binding:"required"`
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
-		FullName string `json:"full_name" binding:"required"`
-		Phone    string `json:"phone"`
 	}
 	db := c.MustGet("db").(*gorm.DB)
 
@@ -43,12 +41,9 @@ func UserRegister(c *gin.Context) {
 		return
 	}
 
-	// Auto create profile
+	// Auto create empty profile - hanya ID dan UserID
 	profile := models.UserProfile{
-		UserID:       user.ID,
-		FullName:     input.FullName,
-		Phone:        input.Phone,
-		PhotoProfile: "default-user.png",
+		UserID: user.ID,
 	}
 
 	if err := tx.Create(&profile).Error; err != nil {

@@ -12,7 +12,7 @@ func GetSellerProfile(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
 	var sellerProfile models.SellerProfile
-	if err := db.Where("id = ?", sellerID).First(&sellerProfile).Error; err != nil {
+	if err := db.Where("seller_id = ?", sellerID).First(&sellerProfile).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Profile not found"})
 		return
 	}
@@ -59,7 +59,7 @@ func UpdateSellerProfile(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Profile berhasil diambil",
+		"message": "Profile berhasil diupdate",
 		"data":    profile,
 	})
 }

@@ -14,8 +14,6 @@ func SellerRegister(c *gin.Context) {
 		Email    string `json:"email" binding:"required"`
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
-		ShopName string `json:"shop_name" binding:"required"`
-		Phone    string `json:"phone"`
 	}
 	db := c.MustGet("db").(*gorm.DB)
 
@@ -46,9 +44,7 @@ func SellerRegister(c *gin.Context) {
 	// Auto create profile
 	profile := models.SellerProfile{
 		SellerID: seller.ID,
-		ShopName: input.ShopName,
-		Phone:    input.Phone,
-		ShopLogo: "default-shop.png",
+		ShopName: "Toko " + seller.Username,
 	}
 
 	if err := tx.Create(&profile).Error; err != nil {
