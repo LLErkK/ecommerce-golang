@@ -21,7 +21,7 @@ type Product struct {
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 
-	Seller SellerProfile `gorm:"foreignKey:SellerID;references:SellerID" json:"seller,omitempty"`
+	Seller Seller `gorm:"foreignKey:SellerID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 
 // ProductListView - For search/browse (lightweight)

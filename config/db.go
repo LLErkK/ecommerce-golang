@@ -28,7 +28,7 @@ func ConnectDB() *gorm.DB {
 	DB = db
 
 	// Optional: Auto migrate tabel user & seller
-	db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&models.User{},
 		&models.Seller{},
 		&models.UserProfile{},
@@ -36,7 +36,9 @@ func ConnectDB() *gorm.DB {
 		&models.Product{},
 		&models.ProductUserHistory{},
 		&models.ProductUserCart{},
-	)
+	); err != nil {
+		log.Fatalf("AutoMigrate failed: %v", err)
+	}
 
 	return db
 }

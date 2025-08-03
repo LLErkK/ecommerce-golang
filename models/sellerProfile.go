@@ -13,4 +13,6 @@ type SellerProfile struct {
 	ShopLogo  string    `json:"shop_logo"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	Seller Seller `gorm:"foreignKey:SellerID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }

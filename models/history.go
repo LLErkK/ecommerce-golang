@@ -11,7 +11,7 @@ type ProductUserHistory struct {
 	Price     float64   `json:"price" gorm:"not null"` // Harga saat beli
 	CreatedAt time.Time `json:"created_at"`
 
-	Product Product `gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"product,omitempty"`
+	Product Product `gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"product,omitempty"`
 	User    User    `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"user,omitempty"`
 }
 
