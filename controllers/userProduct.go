@@ -4,6 +4,7 @@ import (
 	"ecommerce-golang/models"
 	"ecommerce-golang/utils"
 	"encoding/json"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
@@ -365,4 +366,55 @@ func GetCategories(c *gin.Context) {
 		"message": "Categories berhasil diambil",
 		"data":    categories,
 	})
+}
+
+func AddProductToCart(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userID := c.MustGet("userID").(uint)
+	productID := c.Param("id")
+
+	// Ambil produk
+	var product models.Product
+	if err := db.First(&product, "id = ?", productID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	// Cek apakah produk sudah ada di cart user
+	var cartItem models.CartProduct
+	err := db.Where("user_id = ? AND product_id = ?", userID, productID).First(&cartItem).Error
+
+	if err == nil {
+		// Kalau sudah ada → tambah quantity
+		cartItem.Quantity += 1
+		if err := db.Save(&cartItem).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart"})
+			return
+		}
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
+		// Kalau belum ada → buat baru
+		newItem := models.CartProduct{
+			UserID:    userID,
+			ProductID: product.ID,
+			Category:  product.Category,
+			Quantity:  1,
+			Price:     product.Price,
+		}
+
+		// Ambil array pertama dari foto (jika ada)
+		//if len(product.Images) > 0 {
+		//	newItem.Photo = product.Images[0]
+		//}
+
+		if err := db.Create(&newItem).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add to cart"})
+			return
+		}
+	} else {
+		// Error lain
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Product added to cart"})
 }

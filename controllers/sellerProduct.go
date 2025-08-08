@@ -12,15 +12,15 @@ func CreateProduct(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
 	var input struct {
-		Name        string  `json:"name" binding:"required"`
-		Description string  `json:"description"`
-		Price       float64 `json:"price" binding:"required,gt=0"`
-		Stock       uint    `json:"stock" binding:"required,gt=0"`
-		Category    string  `json:"category" binding:"required"`
-		Image       string  `json:"image"`
-		Weight      float64 `json:"weight"`
-		Dimensions  string  `json:"dimensions"`
-		Brand       string  `json:"brand"`
+		Name        string   `json:"name" binding:"required"`
+		Description string   `json:"description"`
+		Price       float64  `json:"price" binding:"required,gt=0"`
+		Stock       uint     `json:"stock" binding:"required,gt=0"`
+		Category    string   `json:"category" binding:"required"`
+		Image       []string `json:"image"`
+		Weight      float64  `json:"weight"`
+		Dimensions  string   `json:"dimensions"`
+		Brand       string   `json:"brand"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -91,16 +91,16 @@ func UpdateProduct(c *gin.Context) {
 	productID := c.Param("id")
 
 	var input struct {
-		Name        string  `json:"name" binding:"required"`
-		Description string  `json:"description"`
-		Price       float64 `json:"price" binding:"required,gt=0"`
-		Stock       uint    `json:"stock" binding:"required,gt=0"`
-		Category    string  `json:"category" `
-		Images      string  `json:"images"`
-		Weight      float64 `json:"weight"`
-		Dimensions  string  `json:"dimensions"`
-		Brand       string  `json:"brand"`
-		IsActive    *bool   `json:"is_active"`
+		Name        string   `json:"name" binding:"required"`
+		Description string   `json:"description"`
+		Price       float64  `json:"price" binding:"required,gt=0"`
+		Stock       uint     `json:"stock" binding:"required,gt=0"`
+		Category    string   `json:"category" `
+		Images      []string `json:"images"`
+		Weight      float64  `json:"weight"`
+		Dimensions  string   `json:"dimensions"`
+		Brand       string   `json:"brand"`
+		IsActive    *bool    `json:"is_active"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -129,7 +129,7 @@ func UpdateProduct(c *gin.Context) {
 	if input.Category != "" {
 		product.Category = input.Category
 	}
-	if input.Images != "" {
+	if input.Images != nil {
 		product.Images = input.Images
 	}
 	if input.Weight > 0 {
@@ -161,6 +161,7 @@ func DeleteProduct(c *gin.Context) {
 	productID := c.Param("id")
 
 	var product models.Product
+
 	if err := db.Where("id = ? AND seller_id = ?", productID, sellerID).First(&product).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
 		return

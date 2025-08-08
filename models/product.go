@@ -10,7 +10,7 @@ type Product struct {
 	Price        float64   `json:"price" gorm:"not null"`
 	Stock        uint      `json:"stock" gorm:"default:0"`
 	Category     string    `json:"category" gorm:"size:255"`
-	Images       string    `json:"images" gorm:"type:text"`     //json array of image url
+	Images       []string  `json:"images" gorm:"type:text"`     //json array of image url
 	Weight       float64   `json:"weight" gorm:"not null"`      //dalam gram
 	Dimensions   string    `json:"dimensions" gorm:"type:text"` //panjang lebar tinggi
 	Brand        string    `json:"brand" gorm:"size:255"`
