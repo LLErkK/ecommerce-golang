@@ -370,51 +370,267 @@ func GetCategories(c *gin.Context) {
 
 func AddProductToCart(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
-	userID := c.MustGet("userID").(uint)
+	userID := c.MustGet("id").(uint)
 	productID := c.Param("id")
 
-	// Ambil produk
+	var input struct {
+		Quantity uint `json:"quantity" binding:"required,min=1"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		input.Quantity = 1
+	}
+
+	productIDUint, err := strconv.ParseUint(productID, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
 	var product models.Product
-	if err := db.First(&product, "id = ?", productID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+	if err := db.First(&product, "id = ? AND is_active = ?", uint(productIDUint), true).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found atau tidak aktif"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		}
+		return
+	}
+
+	// Cek stock availability
+	if product.Stock < input.Quantity {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":              "Insufficient stock",
+			"available_stock":    product.Stock,
+			"requested_quantity": input.Quantity,
+		})
 		return
 	}
 
 	// Cek apakah produk sudah ada di cart user
-	var cartItem models.CartProduct
-	err := db.Where("user_id = ? AND product_id = ?", userID, productID).First(&cartItem).Error
+	var cartItem models.ProductUserCart
+	err = db.Where("user_id = ? AND product_id = ?", userID, uint(productIDUint)).First(&cartItem).Error
 
 	if err == nil {
-		// Kalau sudah ada → tambah quantity
-		cartItem.Quantity += 1
+
+		newQuantity := cartItem.Quantity + input.Quantity
+
+		if product.Stock < newQuantity {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":           "Total quantity would exceed stock",
+				"current_in_cart": cartItem.Quantity,
+				"requested_add":   input.Quantity,
+				"available_stock": product.Stock,
+			})
+			return
+		}
+
+		cartItem.Quantity = newQuantity
 		if err := db.Save(&cartItem).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart"})
 			return
 		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Product quantity updated in cart",
+			"data": gin.H{
+				"cart_id":      cartItem.ID,
+				"product_id":   cartItem.ProductID,
+				"new_quantity": cartItem.Quantity,
+				"total_price":  float64(cartItem.Quantity) * product.Price,
+			},
+		})
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Kalau belum ada → buat baru
-		newItem := models.CartProduct{
+		newItem := models.ProductUserCart{
 			UserID:    userID,
-			ProductID: product.ID,
-			Category:  product.Category,
-			Quantity:  1,
-			Price:     product.Price,
+			ProductID: uint(productIDUint),
+			Quantity:  input.Quantity,
 		}
-
-		// Ambil array pertama dari foto (jika ada)
-		//if len(product.Images) > 0 {
-		//	newItem.Photo = product.Images[0]
-		//}
 
 		if err := db.Create(&newItem).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add to cart"})
 			return
 		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Product added to cart successfully",
+			"data": gin.H{
+				"cart_id":     newItem.ID,
+				"product_id":  newItem.ProductID,
+				"quantity":    newItem.Quantity,
+				"total_price": float64(newItem.Quantity) * product.Price,
+			},
+		})
 	} else {
 		// Error lain
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
+}
+func GetUserCart(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userID := c.MustGet("id").(uint)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Product added to cart"})
+	var cartItems []struct {
+		models.ProductUserCart
+		ProductName  string  `json:"product_name"`
+		ProductPrice float64 `json:"product_price"`
+		ProductImage string  `json:"product_image"`
+		ShopName     string  `json:"shop_name"`
+		IsActive     bool    `json:"is_active"`
+		Stock        uint    `json:"stock"`
+		TotalPrice   float64 `json:"total_price"`
+	}
+
+	err := db.Table("product_user_carts").
+		Select(`product_user_carts.*, 
+				products.name as product_name, 
+				products.price as product_price,
+				products.images as product_image,
+				products.is_active,
+				products.stock,
+				seller_profiles.shop_name,
+				(product_user_carts.quantity * products.price) as total_price`).
+		Joins("LEFT JOIN products ON product_user_carts.product_id = products.id").
+		Joins("LEFT JOIN seller_profiles ON products.seller_id = seller_profiles.seller_id").
+		Where("product_user_carts.user_id = ?", userID).
+		Order("product_user_carts.created_at DESC").
+		Find(&cartItems).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get cart items"})
+		return
+	}
+
+	// Process product images and calculate totals
+	var totalItems uint = 0
+	var totalPrice float64 = 0
+
+	for i := range cartItems {
+		// Process first image
+		if cartItems[i].ProductImage != "" {
+			var imageList []string
+			if json.Unmarshal([]byte(cartItems[i].ProductImage), &imageList) == nil && len(imageList) > 0 {
+				cartItems[i].ProductImage = imageList[0]
+			}
+		}
+
+		// Only count active products
+		if cartItems[i].IsActive {
+			totalItems += cartItems[i].Quantity
+			totalPrice += cartItems[i].TotalPrice
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Cart berhasil diambil",
+		"data":    cartItems,
+		"summary": gin.H{
+			"total_items": totalItems,
+			"total_price": totalPrice,
+			"item_count":  len(cartItems),
+		},
+	})
+}
+
+func UpdateCartItem(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userID := c.MustGet("id").(uint)
+	cartItemID := c.Param("cart_id")
+
+	var input struct {
+		Quantity uint `json:"quantity" binding:"required,min=1"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Find cart item
+	var cartItem models.ProductUserCart
+	err := db.Where("id = ? AND user_id = ?", cartItemID, userID).First(&cartItem).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Cart item not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		}
+		return
+	}
+
+	// Check product stock
+	var product models.Product
+	if err := db.First(&product, cartItem.ProductID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	if product.Stock < input.Quantity {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":              "Insufficient stock",
+			"available_stock":    product.Stock,
+			"requested_quantity": input.Quantity,
+		})
+		return
+	}
+
+	// Update quantity
+	cartItem.Quantity = input.Quantity
+	if err := db.Save(&cartItem).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cart item"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Cart item updated successfully",
+		"data": gin.H{
+			"cart_id":      cartItem.ID,
+			"product_id":   cartItem.ProductID,
+			"new_quantity": cartItem.Quantity,
+			"total_price":  float64(cartItem.Quantity) * product.Price,
+		},
+	})
+}
+
+func RemoveFromCart(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userID := c.MustGet("id").(uint)
+	cartItemID := c.Param("cart_id")
+
+	// Find and delete cart item
+	var cartItem models.ProductUserCart
+	err := db.Where("id = ? AND user_id = ?", cartItemID, userID).First(&cartItem).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Cart item not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		}
+		return
+	}
+
+	if err := db.Delete(&cartItem).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove from cart"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Item removed from cart successfully",
+	})
+}
+
+func ClearCart(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userID := c.MustGet("id").(uint)
+
+	if err := db.Where("user_id = ?", userID).Delete(&models.ProductUserCart{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear cart"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Cart cleared successfully",
+	})
 }

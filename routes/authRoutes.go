@@ -72,6 +72,13 @@ func AuthRoutes(r *gin.Engine, db *gorm.DB) {
 		userProtected.GET("/me", controllers.UserMe)
 		userProtected.GET("/profile", controllers.GetUserProfile)
 		userProtected.PUT("/profile", controllers.UpdateUserProfile)
+
+		//Cart endpoint
+		userProtected.GET("/cart", controllers.GetUserCart)
+		userProtected.POST("/cart/product/:id", controllers.AddProductToCart)
+		userProtected.PUT("/cart/:cart_id", controllers.UpdateCartItem)
+		userProtected.DELETE("/cart/:cart_id", controllers.RemoveFromCart)
+		userProtected.DELETE("/cart", controllers.ClearCart)
 	}
 
 	// Protected seller routes dengan dynamic rate limiting
@@ -158,6 +165,13 @@ func AdvancedAuthRoutes(r *gin.Engine, db *gorm.DB) {
 			userGroup.GET("/me", controllers.UserMe)
 			userGroup.GET("/profile", controllers.GetUserProfile)
 			userGroup.PUT("/profile", controllers.UpdateUserProfile)
+
+			//cart end points
+			userGroup.GET("/cart", controllers.GetUserCart)
+			userGroup.POST("/cart/product/:id", controllers.AddProductToCart)
+			userGroup.PUT("/cart/:cart_id", controllers.UpdateCartItem)
+			userGroup.DELETE("/cart/:cart_id", controllers.RemoveFromCart)
+			userGroup.DELETE("/cart", controllers.ClearCart)
 		}
 
 		// Seller endpoints
