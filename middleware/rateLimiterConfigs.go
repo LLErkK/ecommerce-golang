@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"time"
 )
@@ -27,11 +28,19 @@ func UserBasedRateLimiter(requestsPerMinute, burstSize int) *RateLimiter {
 		BurstSize:        burstSize,
 		WindowSize:       time.Minute,
 		KeyFunc: func(c *gin.Context) string {
-			// Try to get user ID from context (if authenticated)
 			if userID, exists := c.Get("id"); exists {
-				return "user:" + string(rune(userID.(uint)))
+				switch v := userID.(type) {
+				case uint:
+					return fmt.Sprintf("search:user:%d", v)
+				case int:
+					return fmt.Sprintf("search:user:%d", v)
+				case float64:
+					return fmt.Sprintf("search:user:%d", int(v))
+				default:
+					return "ip:" + c.ClientIP()
+				}
 			}
-			// Fallback to IP if not authenticated
+			// Kalau tidak login, fallback ke IP
 			return "ip:" + c.ClientIP()
 		},
 	})
@@ -101,15 +110,22 @@ func AuthRateLimiter() *RateLimiter {
 // SearchRateLimiter - rate limiter untuk search endpoints
 func SearchRateLimiter() *RateLimiter {
 	return NewRateLimiter(RateLimiterConfig{
-		RequestPerMinute: 30, // 30 searches per menit
-		BurstSize:        5,  // Burst kecil untuk search
+		RequestPerMinute: 30,
+		BurstSize:        5,
 		WindowSize:       time.Minute,
 		KeyFunc: func(c *gin.Context) string {
-			// Jika authenticated, rate limit per user
 			if userID, exists := c.Get("id"); exists {
-				return "search:user:" + string(rune(userID.(uint)))
+				switch v := userID.(type) {
+				case uint:
+					return fmt.Sprintf("search:user:%d", v)
+				case int:
+					return fmt.Sprintf("search:user:%d", v)
+				case float64:
+					return fmt.Sprintf("search:user:%d", int(v))
+				default:
+					return "search:ip:" + c.ClientIP()
+				}
 			}
-			// Jika anonymous, rate limit per IP
 			return "search:ip:" + c.ClientIP()
 		},
 	})

@@ -10,9 +10,9 @@ type Product struct {
 	Price        float64   `json:"price" gorm:"not null"`
 	Stock        uint      `json:"stock" gorm:"default:0"`
 	Category     string    `json:"category" gorm:"size:255"`
-	Images       []string  `json:"images" gorm:"type:json"`     //json array of image url
-	Weight       float64   `json:"weight" gorm:"not null"`      //dalam gram
-	Dimensions   string    `json:"dimensions" gorm:"type:text"` //panjang lebar tinggi
+	Images       []string  `json:"images" gorm:"type:json;serializer:json"` //json array of image url
+	Weight       float64   `json:"weight" gorm:"not null"`                  //dalam gram
+	Dimensions   string    `json:"dimensions" gorm:"type:text"`             //panjang lebar tinggi
 	Brand        string    `json:"brand" gorm:"size:255"`
 	IsActive     bool      `json:"is_active" gorm:"default:false"`
 	Rating       float64   `json:"rating" gorm:"default:0"`
@@ -31,7 +31,7 @@ type ProductListView struct {
 	Price     float64 `json:"price"`
 	Image     string  `json:"image"` // First image only
 	Rating    float64 `json:"rating"`
-	TotalSold int     `json:"total_sold"`
+	TotalSold uint    `json:"total_sold"`
 	ShopName  string  `json:"shop_name"`
 	City      string  `json:"city"`
 }

@@ -35,13 +35,14 @@ func SearchProduct(c *gin.Context) {
 
 	query := db.Table("products").
 		Select(`products.id, products.name, products.price, products.rating, 
-                products.total_sold, products.images,
-                seller_profiles.shop_name, seller_profiles.city`).
+            products.total_sold, 
+            JSON_UNQUOTE(JSON_EXTRACT(products.images, '$[0]')) as image,
+            seller_profiles.shop_name, seller_profiles.city`).
 		Joins("LEFT JOIN seller_profiles ON products.seller_id = seller_profiles.seller_id").
 		Where("products.is_active = ? AND products.stock > 0", true)
 
 	if search != "" {
-		query = query.Where("products.name LIKE = ?", "%"+search+"%")
+		query = query.Where("products.name LIKE  ?", "%"+search+"%")
 	}
 	if category != "" {
 		query = query.Where("products.category = ?", category)
@@ -88,17 +89,6 @@ func SearchProduct(c *gin.Context) {
 	if err := query.Limit(limitInt).Offset(offset).Find(&products).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil products"})
 		return
-	}
-
-	//mengambil foto pertama untuk thumbnail
-	for i := range products {
-		var imageList []string
-		err := json.Unmarshal([]byte(products[i].Image), &imageList)
-		if err == nil && len(imageList) > 0 {
-			products[i].Image = imageList[0] // ambil thumbnail dari elemen pertama
-		} else {
-			products[i].Image = "" // fallback kosong jika parsing gagal
-		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -149,7 +139,16 @@ func GetRecommendations(c *gin.Context) {
 
 	if exists {
 		isAuthenticated = true
-		userIDUint = userID.(uint)
+		switch v := userID.(type) {
+		case uint:
+			userIDUint = v
+		case int:
+			userIDUint = uint(v)
+		case float64:
+			userIDUint = uint(v)
+		default:
+			isAuthenticated = false // tipe tidak dikenal, anggap tidak login
+		}
 	}
 
 	var recommendedProducts []models.ProductListView

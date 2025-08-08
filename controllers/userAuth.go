@@ -76,12 +76,12 @@ func UserLogin(c *gin.Context) {
 	}
 	//email salah
 	if err := db.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": "email not found"})
 		return
 	}
 	//password salah
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": "password incorrect"})
 		return
 	}
 

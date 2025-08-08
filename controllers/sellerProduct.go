@@ -10,14 +10,13 @@ import (
 func CreateProduct(c *gin.Context) {
 	sellerID := c.MustGet("id").(uint)
 	db := c.MustGet("db").(*gorm.DB)
-
 	var input struct {
 		Name        string   `json:"name" binding:"required"`
 		Description string   `json:"description"`
 		Price       float64  `json:"price" binding:"required,gt=0"`
 		Stock       uint     `json:"stock" binding:"required,gt=0"`
 		Category    string   `json:"category" binding:"required"`
-		Image       []string `json:"image"`
+		Images      []string `json:"images"`
 		Weight      float64  `json:"weight"`
 		Dimensions  string   `json:"dimensions"`
 		Brand       string   `json:"brand"`
@@ -35,7 +34,7 @@ func CreateProduct(c *gin.Context) {
 		Price:       input.Price,
 		Stock:       input.Stock,
 		Category:    input.Category,
-		Images:      input.Image,
+		Images:      input.Images,
 		Weight:      input.Weight,
 		Dimensions:  input.Dimensions,
 		Brand:       input.Brand,
@@ -43,9 +42,12 @@ func CreateProduct(c *gin.Context) {
 	}
 
 	if err := db.Create(&product).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal Membuat Product"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(), // tampilkan pesan error asli
+		})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"massage": "Product created",
 		"data":    product,

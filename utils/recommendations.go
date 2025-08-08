@@ -62,6 +62,7 @@ func GetTopCategoriesByCart(db *gorm.DB, userID uint) []string {
 func GetAnonymousRecommendations(db *gorm.DB) []models.ProductListView {
 	var products []models.ProductListView
 
+	// Coba ambil berdasarkan rating/total_sold
 	err := db.Table("products").
 		Select(`products.id, products.name, products.price, products.rating, 
                 products.total_sold, products.images,
@@ -73,8 +74,17 @@ func GetAnonymousRecommendations(db *gorm.DB) []models.ProductListView {
 		Limit(20).
 		Find(&products).Error
 
-	if err != nil {
-		return []models.ProductListView{}
+	// Jika kosong, ambil produk aktif secara random
+	if err != nil || len(products) == 0 {
+		db.Table("products").
+			Select(`products.id, products.name, products.price, products.rating, 
+                    products.total_sold, products.images,
+                    seller_profiles.shop_name, seller_profiles.city`).
+			Joins("LEFT JOIN seller_profiles ON products.seller_id = seller_profiles.seller_id").
+			Where("products.is_active = ? AND products.stock > 0", true).
+			Order("RAND()").
+			Limit(20).
+			Find(&products)
 	}
 
 	ProcessProductImages(&products)
