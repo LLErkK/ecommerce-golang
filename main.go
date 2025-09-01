@@ -10,18 +10,19 @@ import (
 )
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	// Coba load file .env, kalau gagal berarti pakai environment variable bawaan
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
 	}
 
 	db := config.ConnectDB()
 	r := gin.Default()
 	r.Use(middleware.InjectDB(db))
 
-	routes.AuthRoutes(r, db) // Daftarkan routes, dan pilih tingakatn rate
-	err = r.Run(":8080")     // Jalankan router yang sudah ada routes-nya
-	if err != nil {
+	routes.AuthRoutes(r, db)
+
+	// Jalankan server di port 8080
+	if err := r.Run(":8080"); err != nil {
 		panic(err)
 	}
 }
