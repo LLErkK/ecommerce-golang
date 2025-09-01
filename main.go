@@ -1,32 +1,52 @@
 package main
 
 import (
-	"ecommerce-golang/config"
-	"ecommerce-golang/middleware"
-	"ecommerce-golang/routes"
-	"github.com/gin-gonic/gin"
+	"fmt"
 	"log"
 	"os"
+
+	"ecommerce-golang/middleware"
+	"ecommerce-golang/routes"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// Railway otomatis kasih environment variables
-	// Jadi tidak perlu pakai .env file
-	db := config.ConnectDB()
+	// Ambil variabel env dari Railway
+	dbUser := os.Getenv("MYSQLUSER")
+	dbPass := os.Getenv("MYSQLPASSWORD")
+	dbHost := os.Getenv("MYSQLHOST")
+	dbPort := os.Getenv("MYSQLPORT")
+	dbName := os.Getenv("MYSQLDATABASE")
+
+	// Format DSN MySQL untuk GORM
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		dbUser, dbPass, dbHost, dbPort, dbName,
+	)
+
+	// Koneksi pakai GORM
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatal("Gagal koneksi database:", err)
+	}
+
+	// Setup Gin
 	r := gin.Default()
+
+	// Middleware inject DB
 	r.Use(middleware.InjectDB(db))
 
-	// Daftarkan routes
+	// Routes
 	routes.AuthRoutes(r, db)
 
-	// Railway kasih PORT otomatis lewat env "PORT"
+	// Listen pakai port Railway (default 8080)
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080" // default kalau running lokal
+		port = "8080"
 	}
 
-	log.Printf("Server running on port %s", port)
-	if err := r.Run(":" + port); err != nil {
-		panic(err)
-	}
+	r.Run(":" + port)
 }
