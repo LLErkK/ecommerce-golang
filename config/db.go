@@ -1,52 +1,35 @@
 package config
 
 import (
-	"ecommerce-golang/models"
+	"database/sql"
 	"fmt"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 	"log"
 	"os"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
-var DB *gorm.DB
+func ConnectDB() *sql.DB {
+	// Railway env
+	user := os.Getenv("MYSQLUSER")
+	password := os.Getenv("MYSQLPASSWORD")
+	host := os.Getenv("MYSQLHOST")
+	port := os.Getenv("MYSQLPORT")
+	database := os.Getenv("MYSQLDATABASE")
 
-func ConnectDB() *gorm.DB {
-	// Contoh koneksi ke MySQL lokal
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		getEnv("DB_USER", "root"),
-		getEnv("DB_PASS", ""),
-		getEnv("DB_HOST", "127.0.0.1"),
-		getEnv("DB_PORT", "3306"),
-		getEnv("DB_NAME", "ecommerce"),
-	)
+	// Format DSN MySQL
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		user, password, host, port, database)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatal("DB connection error:", err)
-	}
-	DB = db
-
-	// Optional: Auto migrate tabel user & seller
-	if err := db.AutoMigrate(
-		&models.User{},
-		&models.Seller{},
-		&models.UserProfile{},
-		&models.SellerProfile{},
-		&models.Product{},
-		&models.ProductUserHistory{},
-		&models.ProductUserCart{},
-	); err != nil {
-		log.Fatalf("AutoMigrate failed: %v", err)
+		log.Fatal("Failed to connect database: ", err)
 	}
 
+	if err := db.Ping(); err != nil {
+		log.Fatal("Database not reachable: ", err)
+	}
+
+	log.Println("Connected to MySQL Railway successfully 🚀")
 	return db
-}
-
-func getEnv(key, fallback string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		return fallback
-	}
-	return val
 }
